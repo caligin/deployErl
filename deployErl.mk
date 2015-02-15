@@ -1,0 +1,20 @@
+DEPLOY_TARGET_PORT ?= 22
+DEPLOY_TARGET_DIR ?= /
+DEPLOY_TARGET_USER ?= root
+DEPLOY_IDENTITY_FILE ?= $$HOME/.ssh/id_rsa
+DEPLOY_RELNAME_AND_VERSION := $(shell erl -noshell -eval '{ok,Commands}=file:consult("$(CURDIR)/relx.config"), {release,{Relname, Relversion},_}=lists:keyfind(release,1,Commands), io:format("~p "++Relversion++"~n",[Relname]), halt().')
+DEPLOY_RELNAME := $(firstword $(DEPLOY_RELNAME_AND_VERSION))
+space := $(subst ,, )
+DEPLOY_TARBALLNAME := $(subst $(space),-,$(DEPLOY_RELNAME_AND_VERSION)).tar.gz
+DEPLOY_COPY_COMMAND := scp -P $(DEPLOY_TARGET_PORT) -i $(DEPLOY_IDENTITY_FILE) $(RELX_OUTPUT_DIR)/$(DEPLOY_RELNAME)/$(DEPLOY_TARBALLNAME) $(DEPLOY_TARGET_USER)@$(DEPLOY_TARGET):$(DEPLOY_TARGET_DIR)
+DEPLOY_EXTRACT_COMMAND := ssh -p $(DEPLOY_TARGET_PORT) -i $(DEPLOY_IDENTITY_FILE) $(DEPLOY_TARGET_USER)@$(DEPLOY_TARGET) "mkdir -p $(DEPLOY_TARGET_DIR)/$(DEPLOY_RELNAME) && tar xzf $(DEPLOY_TARGET_DIR)/$(DEPLOY_TARBALLNAME) -C $(DEPLOY_TARGET_DIR)/$(DEPLOY_RELNAME)"
+DEPLOY_RUN_COMMAND := ssh -p $(DEPLOY_TARGET_PORT) -i $(DEPLOY_IDENTITY_FILE) $(DEPLOY_TARGET_USER)@$(DEPLOY_TARGET) "$(DEPLOY_TARGET_DIR)/$(DEPLOY_RELNAME)/bin/$(DEPLOY_RELNAME) start"
+
+deploy: rel
+ifeq ($(DEPLOY_TARGET),)
+	$(error Error: must supply a deploy target via DEPLOY_TARGET variable)
+endif
+	$(RELX) tar
+	$(DEPLOY_COPY_COMMAND)
+	$(DEPLOY_EXTRACT_COMMAND)
+	$(DEPLOY_RUN_COMMAND)

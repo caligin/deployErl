@@ -1,0 +1,29 @@
+#!/usr/bin/env ruby
+
+require 'test/unit'
+require 'socket'
+
+class DeployTest < Test::Unit::TestCase
+
+    def setup
+        image_details = `docker images | grep deployerl_target`
+        if image_details == '' then
+            `docker build -t deployerl_target docker/`
+        end
+        `docker run -d --name test_can_deploy -p 2222:22 -p 8888:8888 deployerl_target`
+        `cd versionapp && make deps app`
+    end
+
+    def teardown
+        `docker kill test_can_deploy`
+        `docker rm test_can_deploy`
+    end
+
+    def test_can_deploy
+        `cd versionapp && make deploy`
+        sleep(2)
+        version = `curl -s http://localhost:8888/`
+        assert_equal("1", version)
+    end
+
+end
