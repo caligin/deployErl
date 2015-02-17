@@ -11,7 +11,8 @@ class DeployTest < Test::Unit::TestCase
             `docker build -t deployerl_target docker/`
         end
         `docker run -d --name test_can_deploy -p 2222:22 -p 8888:8888 deployerl_target`
-        `cd versionapp && make deps app`
+        `cd versionapp && make deps app deploy`
+        sleep(2)
     end
 
     def teardown
@@ -20,10 +21,13 @@ class DeployTest < Test::Unit::TestCase
     end
 
     def test_can_deploy
-        `cd versionapp && make deploy`
-        sleep(2)
         version = `curl -s http://localhost:8888/`
         assert_equal("1", version)
+    end
+
+    def test_can_have_runuser_dirs
+        owner = `ssh -p 2222 -i docker/insecure_test_key root@localhost "stat -c '%U' /versionapp/log/"`.strip
+        assert_equal("versionapp", owner)
     end
 
 end
